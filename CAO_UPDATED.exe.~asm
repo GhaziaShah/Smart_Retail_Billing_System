@@ -1,0 +1,445 @@
+.MODEL SMALL
+.STACK 100H
+
+.DATA
+
+; Prices
+rice_price DW 10
+sugar_price DW 15
+milk_price DW 20
+tea_price DW 25
+biscuit_price DW 30
+
+; Quantities
+rice_qty DB 0
+sugar_qty DB 0
+milk_qty DB 0
+tea_qty DB 0
+biscuit_qty DB 0
+
+; Totals
+rice_total DW 0
+sugar_total DW 0
+milk_total DW 0
+tea_total DW 0
+biscuit_total DW 0
+
+grand_total DW 0
+final_total DW 0
+discount_flag DB 0
+tax_amount DW 0
+tax_msg DB 13,10,"Tax (5%): Rs $"
+
+; Messages
+menu_msg DB 13,10,"===== SHOP =====",13,10
+DB "1.Rice-10 2.Sugar-15",13,10
+DB "3.Milk-20 4.Tea-25",13,10
+DB "5.Biscuit-30 0.Checkout",13,10
+DB "Choice: $"
+
+qty_msg DB 13,10,"Qty: $"
+
+header DB 13,10,"INVOICE",13,10
+DB "Item Qty Price Total",13,10
+DB "--------------------",13,10,"$"
+
+gtotal DB 13,10,"Subtotal: Rs $"
+finalmsg DB 13,10,"Total: Rs $"
+disc_msg DB 13,10,"10% OFF APPLIED",13,10,"Final: Rs $"
+thanks DB 13,10,"Thanks!$"
+
+; Item names
+rice_name DB "Rice  $"
+sugar_name DB "Sugar $"
+milk_name DB "Milk  $"
+tea_name DB "Tea   $"
+biscuit_name DB "Biscuit $"
+
+.CODE
+
+PRINT MACRO msg
+MOV AH,09H
+MOV DX,OFFSET msg
+INT 21H
+ENDM
+
+MAIN PROC
+
+MOV AX,@DATA
+MOV DS,AX
+
+MENU:
+
+PRINT menu_msg
+
+MOV AH,01H
+INT 21H
+SUB AL,30H
+
+CMP AL,0
+JE BILL
+
+CMP AL,1
+JE ITEM1
+CMP AL,2
+JE ITEM2
+CMP AL,3
+JE ITEM3
+CMP AL,4
+JE ITEM4
+CMP AL,5
+JE ITEM5
+
+JMP MENU
+
+
+ITEM1:
+PRINT qty_msg
+MOV AH,01H
+INT 21H
+SUB AL,30H
+MOV rice_qty,AL
+JMP MENU
+
+ITEM2:
+PRINT qty_msg
+MOV AH,01H
+INT 21H
+SUB AL,30H
+MOV sugar_qty,AL
+JMP MENU
+
+ITEM3:
+PRINT qty_msg
+MOV AH,01H
+INT 21H
+SUB AL,30H
+MOV milk_qty,AL
+JMP MENU
+
+ITEM4:
+PRINT qty_msg
+MOV AH,01H
+INT 21H
+SUB AL,30H
+MOV tea_qty,AL
+JMP MENU
+
+ITEM5:
+PRINT qty_msg
+MOV AH,01H
+INT 21H
+SUB AL,30H
+MOV biscuit_qty,AL
+JMP MENU
+
+
+BILL:
+
+CALL COMPUTE
+CALL SHOW_BILL
+
+MOV AH,4CH
+INT 21H
+
+MAIN ENDP
+
+
+PRINT_NUM PROC
+
+MOV BX,10
+MOV CX,0
+
+DIV10:
+MOV DX,0
+DIV BX
+PUSH DX
+INC CX
+CMP AX,0
+JNE DIV10
+
+PRINT_LOOP:
+POP DX
+ADD DL,30H
+MOV AH,02H
+INT 21H
+LOOP PRINT_LOOP
+
+RET
+PRINT_NUM ENDP
+
+
+COMPUTE PROC
+
+MOV grand_total,0
+
+; Rice
+MOV AL,rice_qty
+MOV AH,0
+MOV BX,rice_price
+MUL BX
+MOV rice_total,AX
+ADD grand_total,AX
+
+; Sugar
+MOV AL,sugar_qty
+MOV AH,0
+MOV BX,sugar_price
+MUL BX
+MOV sugar_total,AX
+ADD grand_total,AX
+
+; Milk
+MOV AL,milk_qty
+MOV AH,0
+MOV BX,milk_price
+MUL BX
+MOV milk_total,AX
+ADD grand_total,AX
+
+; Tea
+MOV AL,tea_qty
+MOV AH,0
+MOV BX,tea_price
+MUL BX
+MOV tea_total,AX
+ADD grand_total,AX
+
+; Biscuit
+MOV AL,biscuit_qty
+MOV AH,0
+MOV BX,biscuit_price
+MUL BX
+MOV biscuit_total,AX
+ADD grand_total,AX
+
+; ===== TAX 5% =====
+MOV AX,grand_total
+MOV BX,5
+MUL BX
+MOV BX,100
+DIV BX
+MOV tax_amount,AX
+
+ADD grand_total,AX
+
+MOV AX,grand_total
+CMP AX,50
+JB NO_DISCOUNT
+
+MOV BL,9
+MUL BL
+MOV BL,10
+DIV BL
+MOV AH,0
+MOV final_total,AX
+MOV discount_flag,1
+RET
+
+NO_DISCOUNT:
+
+MOV final_total,AX
+MOV discount_flag,0
+RET
+
+COMPUTE ENDP
+
+
+SHOW_BILL PROC
+
+PRINT header
+
+; -------- Rice --------
+MOV AL,rice_qty
+CMP AL,0
+JE SKIP1
+
+PRINT rice_name
+
+MOV DL,rice_qty
+ADD DL,30H
+MOV AH,02H
+INT 21H
+
+MOV DL,' '
+INT 21H
+
+MOV AX,rice_price
+CALL PRINT_NUM
+
+MOV DL,' '
+MOV AH,02H
+INT 21H
+
+MOV AX,rice_total
+CALL PRINT_NUM
+
+MOV DL,13
+INT 21H
+MOV DL,10
+INT 21H
+
+SKIP1:
+
+; -------- Sugar --------
+MOV AL,sugar_qty
+CMP AL,0
+JE SKIP2
+
+PRINT sugar_name
+
+MOV DL,sugar_qty
+ADD DL,30H
+MOV AH,02H
+INT 21H
+
+MOV DL,' '
+INT 21H
+
+MOV AX,sugar_price
+CALL PRINT_NUM
+
+MOV DL,' '
+MOV AH,02H
+INT 21H
+
+MOV AX,sugar_total
+CALL PRINT_NUM
+
+MOV DL,13
+INT 21H
+MOV DL,10
+INT 21H
+
+SKIP2:
+
+; -------- Milk --------
+MOV AL,milk_qty
+CMP AL,0
+JE SKIP3
+
+PRINT milk_name
+
+MOV DL,milk_qty
+ADD DL,30H
+MOV AH,02H
+INT 21H
+
+MOV DL,' '
+INT 21H
+
+MOV AX,milk_price
+CALL PRINT_NUM
+
+MOV DL,' '
+MOV AH,02H
+INT 21H
+
+MOV AX,milk_total
+CALL PRINT_NUM
+
+MOV DL,13
+INT 21H
+MOV DL,10
+INT 21H
+
+SKIP3:
+
+; -------- Tea --------
+MOV AL,tea_qty
+CMP AL,0
+JE SKIP4
+
+PRINT tea_name
+
+MOV DL,tea_qty
+ADD DL,30H
+MOV AH,02H
+INT 21H
+
+MOV DL,' '
+INT 21H
+
+MOV AX,tea_price
+CALL PRINT_NUM
+
+MOV DL,' '
+MOV AH,02H
+INT 21H
+
+MOV AX,tea_total
+CALL PRINT_NUM
+
+MOV DL,13
+INT 21H
+MOV DL,10
+INT 21H
+
+SKIP4:
+
+; -------- Biscuit --------
+MOV AL,biscuit_qty
+CMP AL,0
+JE SKIP5
+
+PRINT biscuit_name
+
+MOV DL,biscuit_qty
+ADD DL,30H
+MOV AH,02H
+INT 21H
+
+MOV DL,' '
+INT 21H
+
+MOV AX,biscuit_price
+CALL PRINT_NUM
+
+MOV DL,' '
+MOV AH,02H
+INT 21H
+
+MOV AX,biscuit_total
+CALL PRINT_NUM
+
+MOV DL,13
+INT 21H
+MOV DL,10
+INT 21H
+
+SKIP5:
+
+PRINT tax_msg
+MOV AX,tax_amount
+CALL PRINT_NUM
+
+PRINT gtotal
+MOV AX,grand_total
+CALL PRINT_NUM
+
+CMP discount_flag,1
+JE SHOWDISC
+
+PRINT finalmsg
+MOV AX,final_total
+CALL PRINT_NUM
+JMP END_BILL
+
+SHOWDISC:
+
+PRINT disc_msg
+MOV AX,final_total
+CALL PRINT_NUM
+
+END_BILL:
+
+PRINT thanks
+
+RET
+SHOW_BILL ENDP
+
+END MAIN
+
+
+
+; [SOURCE]: C:\Users\os\Downloads\CAO_UPDATED.asm
